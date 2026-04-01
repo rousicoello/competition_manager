@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/data/mock_competitions.dart';
 import '../../core/models/competition.dart';
+import '../../core/providers/auth_provider.dart';
+import 'competition_detail_screen.dart';
 
 class CompetitionsListScreen extends StatefulWidget {
   const CompetitionsListScreen({super.key});
@@ -28,7 +31,10 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
   }
 
   void _loadData() {
+    // Obtener competencias y ordenar por fecha (más reciente primero)
     _allCompetitions = MockCompetitions.getCompetitions();
+    _allCompetitions.sort((a, b) => b.startDate.compareTo(a.startDate));
+    
     _filteredCompetitions = List.from(_allCompetitions);
     
     // Extraer años únicos (orden descendente)
@@ -36,7 +42,7 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
         .map((c) => c.year.toString())
         .toSet()
         .toList()
-      ..sort((a, b) => b.compareTo(a)); // Más reciente primero
+      ..sort((a, b) => b.compareTo(a));
     
     // Extraer ciudades únicas
     _availableCities = _allCompetitions
@@ -51,6 +57,9 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
   void _applyFilters() {
     setState(() {
       _filteredCompetitions = _allCompetitions.where((comp) {
+        // Solo mostrar torneos publicados
+        if (!comp.isPublished) return false;
+        
         // Filtrar por año
         if (_selectedYear != null && comp.year.toString() != _selectedYear) {
           return false;
@@ -68,12 +77,46 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
     setState(() {
       _selectedYear = null;
       _selectedCity = null;
-      _filteredCompetitions = List.from(_allCompetitions);
+      _filteredCompetitions = _allCompetitions.where((comp) => comp.isPublished).toList();
     });
+  }
+
+  void _logout() {
+    // Mostrar diálogo de confirmación
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              authProvider.logout();
+              Navigator.pop(context); // Cerrar diálogo
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Obtener información del usuario actual
+    final authProvider = Provider.of<AuthProvider>(context);
+    final userName = authProvider.currentUser?.firstName ?? 'Usuario';
+    final userRole = _getRoleName(authProvider.currentUser?.role);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Competencias'),
@@ -81,11 +124,45 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
         foregroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
         actions: [
-          if (_selectedYear != null || _selectedCity != null)
-            TextButton(
-              onPressed: _clearFilters,
-              child: const Text('Limpiar filtros'),
-            ),
+          // Botón de cerrar sesión
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.account_circle),
+            onSelected: (value) {
+              if (value == 'logout') {
+                _logout();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                enabled: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      userName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      userRole,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 12),
+                    Text('Cerrar sesión', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: Column(
@@ -99,17 +176,22 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
                 bottom: BorderSide(color: Colors.grey.shade200),
               ),
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Filtro por año
-                  Container(
-                    margin: const EdgeInsets.only(right: 12),
+            child: Row(
+              children: [
+                // Filtro por año
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: DropdownButton<String>(
                       hint: const Text('Año'),
                       value: _selectedYear,
                       underline: const SizedBox(),
+                      isExpanded: true,
                       icon: Icon(Icons.arrow_drop_down, color: Colors.blue.shade700),
                       items: [
                         const DropdownMenuItem(value: null, child: Text('Todos')),
@@ -128,14 +210,22 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
                       },
                     ),
                   ),
-                  
-                  // Filtro por ciudad
-                  Container(
-                    margin: const EdgeInsets.only(right: 12),
+                ),
+                
+                // Filtro por ciudad
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: DropdownButton<String>(
                       hint: const Text('Ciudad'),
                       value: _selectedCity,
                       underline: const SizedBox(),
+                      isExpanded: true,
                       icon: Icon(Icons.arrow_drop_down, color: Colors.blue.shade700),
                       items: [
                         const DropdownMenuItem(value: null, child: Text('Todas')),
@@ -154,24 +244,26 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
                       },
                     ),
                   ),
-                  
-                  // Contador de resultados
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${_filteredCompetitions.length} torneos',
-                      style: TextStyle(
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
+                ),
+                
+                // Contador de resultados
+                Container(
+                  margin: const EdgeInsets.only(left: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_filteredCompetitions.length}',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           
@@ -223,7 +315,16 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
       ),
       child: InkWell(
         onTap: () {
-          // TODO: Navegar a detalle
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompetitionDetailScreen(
+                competitionId: competition.id,
+                currentUser: authProvider.currentUser!,
+              ),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -356,45 +457,61 @@ class _CompetitionsListScreenState extends State<CompetitionsListScreen> {
                 ],
               ),
               
-              const SizedBox(height: 12),
-              
-              // Progreso de inscripciones (si aplica)
+              // Progreso de inscripciones (solo si está en registro)
               if (competition.status == 'REGISTRATION' && competition.maxTeams != null)
-                Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Cupos disponibles',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Cupos disponibles',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${competition.maxTeams! - competition.registeredTeams} / ${competition.maxTeams}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green.shade700,
+                          Text(
+                            '${competition.maxTeams! - competition.registeredTeams} / ${competition.maxTeams}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    LinearProgressIndicator(
-                      value: competition.registeredTeams / competition.maxTeams!,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: AlwaysStoppedAnimation(Colors.green.shade500),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: competition.registeredTeams / competition.maxTeams!,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation(Colors.green.shade500),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _getRoleName(String? role) {
+    switch (role) {
+      case 'admin':
+        return 'Administrador';
+      case 'coach':
+        return 'Entrenador';
+      case 'judge':
+        return 'Juez';
+      case 'student':
+        return 'Estudiante';
+      default:
+        return 'Usuario';
+    }
   }
 
   String _formatDateRange(DateTime start, DateTime end) {

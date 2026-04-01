@@ -183,6 +183,24 @@ class MockCompetitions {
         bannerUrl: null,
         isPublished: false,
       ),
+    Competition(
+  id: 11,
+  name: 'DRC - Daule Robotics Competition',
+  description: 'Torneo de robótica organizado por el Liceo Los Delfines. Competencias en categorías Sumo, Seguidor de Línea y VEX IQ.',
+  startDate: DateTime(2026, 12, 5),
+  endDate: DateTime(2026, 12, 7),
+  registrationStartDate: DateTime(2026, 8, 1),
+  registrationEndDate: DateTime(2026, 11, 15),
+  venueName: 'Liceo Los Delfines',
+  venueAddress: 'Av. Principal, Ciudad del Este',
+  venueCity: 'Daule',
+  status: 'CONFIRMED',
+  maxTeams: 35,
+  registeredTeams: 12,
+  logoUrl: null,
+  bannerUrl: null,
+  isPublished: true,
+),
     ];
   }
 }
