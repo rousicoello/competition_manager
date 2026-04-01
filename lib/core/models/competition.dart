@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Competition {
   final int id;
   final String name;
@@ -34,6 +36,41 @@ class Competition {
     this.bannerUrl,
     required this.isPublished,
   });
+
+// Getters útiles para filtros
+  int get year => startDate.year;
+  
+  String get statusText {
+    switch (status) {
+      case 'REGISTRATION':
+        return 'Inscripciones abiertas';
+      case 'CONFIRMED':
+        return 'Próximamente';
+      case 'IN_PROGRESS':
+        return 'En curso';
+      case 'COMPLETED':
+        return 'Finalizado';
+      default:
+        return 'En planificación';
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'REGISTRATION':
+        return const Color(0xFF10B981); // Verde
+      case 'CONFIRMED':
+        return const Color(0xFF3B82F6); // Azul
+      case 'IN_PROGRESS':
+        return const Color(0xFFF59E0B); // Naranja
+      case 'COMPLETED':
+        return const Color(0xFF6B7280); // Gris
+      default:
+        return const Color(0xFF9CA3AF); // Gris claro
+    }
+  }
+
+
 
   factory Competition.fromJson(Map<String, dynamic> json) {
     return Competition(
